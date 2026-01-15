@@ -2,6 +2,8 @@ package com.anafXsamsul.error;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -25,6 +27,29 @@ public class GlobalExceptionHandler {
                 .statusCode(400)
                 .message(ex.getMessage())
                 .data(null)
+            .build()
+        );
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
+        log.error("Login gagal: Password salah");
+        return ResponseEntity.badRequest().body(
+            ApiResponse.<Void>builder()
+                .statusCode(400)
+                .message("Email/Username atau password salah")
+                .data(null)
+            .build()
+        );
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthentication(AuthenticationException ex) {
+        log.error("Authentication error: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+            ApiResponse.<Void>builder()
+                .statusCode(401)
+                .message("Gagal melakukan autentikasi")
             .build()
         );
     }
