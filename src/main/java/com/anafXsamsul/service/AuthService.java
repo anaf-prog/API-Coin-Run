@@ -12,11 +12,13 @@ import com.anafXsamsul.dto.LoginRequest;
 import com.anafXsamsul.dto.LoginResponse;
 import com.anafXsamsul.dto.RegisterRequest;
 import com.anafXsamsul.dto.VerifyOtpRequest;
+import com.anafXsamsul.entity.UserProfile;
 import com.anafXsamsul.entity.Users;
 import com.anafXsamsul.entity.Users.AuthProvider;
 import com.anafXsamsul.error.custom.EmailAlreadyExistException;
 import com.anafXsamsul.error.custom.LoginEmailOrUsernameException;
 import com.anafXsamsul.error.custom.UserNameAlreadyExistException;
+import com.anafXsamsul.repository.UserProfileRepository;
 import com.anafXsamsul.repository.UserRepository;
 import com.anafXsamsul.security.CustomUserDetails;
 import com.anafXsamsul.security.JwtService;
@@ -30,6 +32,9 @@ public class AuthService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -74,6 +79,36 @@ public class AuthService {
         user.setEmailVerified(false);
 
         Users savedUser = userRepository.save(user);
+
+        UserProfile profile = new UserProfile();
+        profile.setUser(savedUser);
+
+        // Ekstrak nama depan dari email
+        String email = savedUser.getEmail();
+        String emailPart = email.split("@")[0];
+
+        // Bersihkan karakter kusus dan angka
+        String cleanName = emailPart.replaceAll("[^a-zA-Z]", " ");
+        cleanName = cleanName.replaceAll("\\s+", " ").trim();
+
+        // Pecah jadi kata kata
+        String[] namePart = cleanName.split("\\s+");
+
+        if (namePart.length >= 1) {
+            profile.setFirstName(namePart[0]);
+        }
+
+        if (namePart.length >= 2) {
+            profile.setLastName(namePart[1]);
+
+        } else {
+            profile.setFirstName(namePart[0]);
+            profile.setLastName("");
+        }
+
+        profile.setUpdatedAt(LocalDateTime.now().withNano(0));
+
+        userProfileRepository.save(profile);
 
         try {
 
