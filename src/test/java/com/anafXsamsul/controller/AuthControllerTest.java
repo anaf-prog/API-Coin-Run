@@ -7,9 +7,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import com.anafXsamsul.PrettyPrintResultHandler;
+import com.anafXsamsul.dto.LoginRequest;
 import com.anafXsamsul.dto.RegisterRequest;
 import com.anafXsamsul.dto.VerifyOtpRequest;
 import com.anafXsamsul.entity.Users;
@@ -36,6 +38,9 @@ public class AuthControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Autowired
     private UserRepository userRepository;
@@ -111,6 +116,33 @@ public class AuthControllerTest {
         Optional<Users> userDb = userRepository.findByEmail(request.getEmail());
         System.out.println(">>> Verifikasi User dari DB : " + userDb);
         System.out.println(">>> Isi OTP User dari DB : " + userDb.get().getOtpCode());
+    }
+
+    // Test login success
+    @Test
+    void testLoginSuccess() throws Exception {
+        // Buat data user untuk login testing
+        Users user = new Users();
+        user.setEmail("verify@gmail.com");
+        user.setUsername("verifyuser");
+        user.setPassword(passwordEncoder.encode("Password123@."));
+        user.setPhoneNumber("089606891271");
+        userRepository.save(user);
+
+        LoginRequest request = new LoginRequest();
+        request.setEmailOrUsername("verify@gmail.com");
+        request.setPassword("Password123@.");
+
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request)))
+            .andDo(print())
+            .andDo(PrettyPrintResultHandler.printBodyOnly())
+            .andExpect(status().isOk())
+        .andExpect(jsonPath("$.message").value("success"));
+
+        Optional<Users> userDb = userRepository.findByEmail(user.getEmail());
+        System.out.println(">>> Verifikasi User dari DB : " + userDb);
     }
 
     // Test register gagal karena email tidak valid
@@ -269,6 +301,34 @@ public class AuthControllerTest {
         Optional<Users> userDb = userRepository.findByEmail(request.getEmail());
         System.out.println(">>> Verifikasi User dari DB : " + userDb);
         System.out.println(">>> Isi OTP User dari DB : " + userDb.get().getOtpCode());
+    }
+
+    // Test login gagal karena password salah
+    @Test
+    void testLoginGagal() throws Exception {
+        // Buat data user untuk login testing
+        Users user = new Users();
+        user.setEmail("verify@gmail.com");
+        user.setUsername("verifyuser");
+        user.setPassword(passwordEncoder.encode("Password123@."));
+        user.setPhoneNumber("089606891271");
+        userRepository.save(user);
+
+        LoginRequest request = new LoginRequest();
+        request.setEmailOrUsername("verify@gmail.com");
+        request.setPassword("Password123@"); // Password salah
+
+        mockMvc.perform(post("/api/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(request)))
+            .andDo(print())
+            .andDo(PrettyPrintResultHandler.printBodyOnly())
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.statusCode").value(400))
+        .andExpect(jsonPath("$.message").isNotEmpty());
+
+        Optional<Users> userDb = userRepository.findByEmail(user.getEmail());
+        System.out.println(">>> Verifikasi User dari DB : " + userDb);
     }
 
 }
