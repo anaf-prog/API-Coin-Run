@@ -12,11 +12,12 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
+import com.anafXsamsul.entity.UserProfile;
 import com.anafXsamsul.entity.Users;
 import com.anafXsamsul.entity.Users.AuthProvider;
 import com.anafXsamsul.error.custom.LoginEmailOrUsernameException;
+import com.anafXsamsul.repository.UserProfileRepository;
 import com.anafXsamsul.repository.UserRepository;
-
 import jakarta.transaction.Transactional;
 
 /**
@@ -30,6 +31,9 @@ public class CustomOauth2UserService extends DefaultOAuth2UserService {
     
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private UserProfileRepository userProfileRepository;
 
     /**
      * Method utama yang dipanggil Spring Security
@@ -75,9 +79,14 @@ public class CustomOauth2UserService extends DefaultOAuth2UserService {
                 user.setOauth2Email(email);
                 user.setUpdatedAt(LocalDateTime.now().withNano(0));
             }
+
+            // Cek apakah user sudah punya profile
+            if (user.getProfile() == null) {
+                createUserProfile(user, oAuth2User);
+            }
         } else {
             // User baru - register
-            user = registerNewUser(provider, googleId, email, name);
+            user = registerNewUser(provider, googleId, email, name, oAuth2User);
         }
         
         // 5. Update last login
@@ -93,7 +102,7 @@ public class CustomOauth2UserService extends DefaultOAuth2UserService {
     }
 
     /** Mendaftarkan user baru yang login melalui OAuth2. */
-    private Users registerNewUser(Users.AuthProvider provider, String providerId, String email, String name) {
+    private Users registerNewUser(Users.AuthProvider provider, String providerId, String email, String name, OAuth2User oAuth2User) {
         Users user = new Users();
         
         // Generate username dari email
@@ -118,7 +127,79 @@ public class CustomOauth2UserService extends DefaultOAuth2UserService {
         user.setCreatedAt(LocalDateTime.now().withNano(0));
         user.setUpdatedAt(LocalDateTime.now().withNano(0));
         
-        return userRepository.save(user);
+        Users savedUser = userRepository.save(user);
+
+        UserProfile profile = new UserProfile();
+        profile.setUser(savedUser);
+
+        // Split nama dari google
+        if (name != null && !name.isEmpty()) {
+            String[] namePart = name.split(" ", 2);
+            profile.setFirstName(namePart[0]);
+            if (namePart.length > 1) {
+                profile.setLastName(namePart[1]);
+            }
+
+        } else {
+            String emailPart = email.split("@")[0];
+            profile.setFirstName(emailPart);
+        }
+
+        Map<String, Object> attributes = oAuth2User.getAttributes();
+        String pictureUrl = (String) attributes.get("picture");
+        if (pictureUrl != null) {
+            profile.setProfileImageUrl(pictureUrl);
+        }
+
+        profile.setUpdatedAt(LocalDateTime.now().withNano(0));
+
+        userProfileRepository.save(profile);
+
+        return savedUser;
+    }
+
+    /** Membuat UserProfile dari data OAuth2 */
+    private void createUserProfile(Users user, OAuth2User oAuth2User) {
+        Map<String, Object> attributes = oAuth2User.getAttributes();
+
+        UserProfile profile = new UserProfile();
+        profile.setUser(user);
+
+        String name = (String) attributes.get("name");
+        String email = user.getEmail();
+
+        // Split nama dari Google
+        if (name != null && !name.isEmpty()) {
+            String[] namePart = name.split(" ", 2);
+            profile.setFirstName(namePart[0]);
+            if (namePart.length > 1) {
+                profile.setLastName(namePart[1]);
+            }
+        } else {
+            String emailPart = email.split("@")[0];
+            profile.setFirstName(emailPart);
+        }
+
+        // Set profile picture dari Google jika ada
+        String pictureUrl = (String) attributes.get("picture");
+        if (pictureUrl != null && !pictureUrl.isEmpty()) {
+            profile.setProfileImageUrl(pictureUrl);
+        }
+
+        // Extract additional data jika ada
+        String givenName = (String) attributes.get("given_name");
+        String familyName = (String) attributes.get("family_name");
+
+        if (givenName != null && !givenName.isEmpty()) {
+            profile.setFirstName(givenName);
+        }
+        if (familyName != null && !familyName.isEmpty()) {
+            profile.setLastName(familyName);
+        }
+
+        profile.setUpdatedAt(LocalDateTime.now().withNano(0));
+
+        userProfileRepository.save(profile);
     }
     
 }
