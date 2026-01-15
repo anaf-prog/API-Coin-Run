@@ -1,6 +1,5 @@
 package com.anafXsamsul.service;
 
-import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -21,6 +20,7 @@ import com.anafXsamsul.error.custom.UserNameAlreadyExistException;
 import com.anafXsamsul.repository.UserRepository;
 import com.anafXsamsul.security.CustomUserDetails;
 import com.anafXsamsul.security.JwtService;
+import com.anafXsamsul.utility.GenerateOtp;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,6 +39,9 @@ public class AuthService {
 
     @Autowired
     private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private GenerateOtp generateOtp;
 
     @Autowired
     private EmailService emailService;
@@ -65,18 +68,26 @@ public class AuthService {
         user.setCreatedAt(LocalDateTime.now().withNano(0));
 
         // === OTP ===
-        String otp = generateOtp();
+        String otp = generateOtp.generate();
         user.setOtpCode(otp);
         user.setOtpExpiredAt(LocalDateTime.now().plusMinutes(5));
         user.setEmailVerified(false);
 
         Users savedUser = userRepository.save(user);
 
-        // Kirim OTP ke email
-        emailService.sendOtpEmail(
-            savedUser.getEmail(),
-            savedUser.getUsername(),
-        otp);
+        try {
+
+            // Kirim OTP ke email
+            emailService.sendOtpEmail(
+                savedUser.getEmail(),
+                savedUser.getUsername(),
+                otp);
+
+            log.info("Email OTP berhasil dikirim");    
+            
+        } catch (Exception e) {
+            log.error("Gagal kirim email otp ke : {} karena {} ", user.getEmail(), e.getMessage());
+        }
 
         return AuthResponse.builder()
             .userId(savedUser.getId())
@@ -93,7 +104,7 @@ public class AuthService {
     public AuthResponse verifyOtp(VerifyOtpRequest request) {
 
         Users user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new LoginEmailOrUsernameException("Email tidak terdaftar"));
+            .orElseThrow(() -> new LoginEmailOrUsernameException("Email tidak terdaftar"));
 
         if (Boolean.TRUE.equals(user.getEmailVerified())) {
             throw new LoginEmailOrUsernameException("Email tidak valid");
@@ -164,10 +175,6 @@ public class AuthService {
             .token(jwtToken)
             .refreshToken(refreshToken)
         .build();
-    }
-
-    private String generateOtp() {
-        return String.format("%06d", new SecureRandom().nextInt(1_000_000));
     }
 
 }
