@@ -1,24 +1,23 @@
 package com.anafXsamsul.service;
 
 import java.time.LocalDateTime;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
 import com.anafXsamsul.dto.ApiResponse;
+import com.anafXsamsul.dto.PasswordResetSuccessEvent;
+import com.anafXsamsul.dto.ResetPasswordRequest;
 import com.anafXsamsul.entity.Users;
 import com.anafXsamsul.error.custom.LoginEmailOrUsernameException;
 import com.anafXsamsul.repository.UserRepository;
-
+import com.anafXsamsul.utility.GenerateOtp;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class ResetPasswordService {
-
-    private static final Logger logger = LoggerFactory.getLogger(ResetPasswordService.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -27,43 +26,96 @@ public class ResetPasswordService {
     private PasswordEncoder passwordEncoder;
 
     @Autowired
+    private GenerateOtp generateOtp;
+
+    @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
+
     @Transactional
-    public ApiResponse<String> setInitialPassword(String email, String newPassword) {
+    public ApiResponse<String> requestResetPassword(String email) {
         Users user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new LoginEmailOrUsernameException("User belum terverifikasi"));
-        
-        user.setPassword(passwordEncoder.encode(newPassword));
+            .orElseThrow(() -> new LoginEmailOrUsernameException("Email tidak terdaftar"));
+
+        String otp = generateOtp.generate();
+        user.setOtpCode(otp);
+        user.setOtpExpiredAt(LocalDateTime.now().plusMinutes(5));
         user.setUpdatedAt(LocalDateTime.now().withNano(0));
         userRepository.save(user);
-        
-        logger.info("Password berhasil di update");
-        
+
+        try {
+
+            emailService.sendOtpEmail(user.getEmail(), user.getUsername(), otp);
+
+            log.info("OTP reset password telah dikirim ke email: {}", email);
+            
+        } catch (Exception e) {
+            log.error("Gagal kirim email otp : {} ", e.getMessage());
+        }
+
         return ApiResponse.<String>builder()
             .statusCode(200)
             .message("success")
-            .data("Password updated")
+            .data("OTP reset password telah dikirim ke email")
         .build();
     }
 
     @Transactional
-    public ApiResponse<String> userResetPassword(String email, String newPassword) {
-        Users user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new LoginEmailOrUsernameException("User belum terverifikasi"));
-        
-        user.setPassword(passwordEncoder.encode(newPassword));
-        user.setUpdatedAt(LocalDateTime.now().withNano(0));
-        userRepository.save(user);
-        
-        logger.info("Password berhasil di update");
+    public ApiResponse<String> resetPassword(ResetPasswordRequest request) {
 
-        emailService.notifyAllUsersAboutPasswordReset(email);
+        Users user = userRepository.findByEmail(request.getEmail())
+            .orElseThrow(() -> new LoginEmailOrUsernameException("Email tidak terdaftar"));
+
+        // Cek status akun
+        if (user.getStatus() != Users.UserStatus.ACTIVE) {
+            throw new LoginEmailOrUsernameException("Akun belum aktif");
+        }
+
+        // Cek OTP
+        if (user.getOtpCode() == null || !user.getOtpCode().equals(request.getOtp())) {
+            throw new LoginEmailOrUsernameException("OTP salah");
+        }
+
+        // Cek expired OTP
+        if (user.getOtpExpiredAt() == null ||
+                user.getOtpExpiredAt().isBefore(LocalDateTime.now())) {
+            throw new LoginEmailOrUsernameException("OTP sudah expired");
+        }
+
+        // Cek password & confirm password
+        if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
+            throw new LoginEmailOrUsernameException("Password dan konfirmasi password tidak sama");
+        }
+
+        // cegah password sama dengan sebelumnya
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new LoginEmailOrUsernameException("Password baru tidak boleh sama dengan password lama");
+        }
+
+        // Update password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setOtpCode(null);
+        user.setOtpExpiredAt(null);
+        user.setUpdatedAt(LocalDateTime.now().withNano(0));
+
+        userRepository.save(user);
+
+        eventPublisher.publishEvent(
+            new PasswordResetSuccessEvent(
+                user.getEmail(),
+                user.getUsername(),
+                LocalDateTime.now()
+            )
+        );
+
+        log.info("Password berhasil direset untuk email: {}", user.getEmail());
 
         return ApiResponse.<String>builder()
             .statusCode(200)
             .message("success")
-            .data("Password updated")
+            .data("Password berhasil direset")
         .build();
     }
     
