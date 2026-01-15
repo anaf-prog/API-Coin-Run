@@ -1,0 +1,52 @@
+{"properties": [
+  {
+    "name": "jwt.secret",
+    "type": "java.lang.String",
+    "description": "A description for 'jwt.secret'"
+  },
+  {
+    "name": "jwt.expiration",
+    "type": "java.lang.String",
+    "description": "A description for 'jwt.expiration'"
+  },
+  {
+    "name": "jwt.refresh-expiration",
+    "type": "java.lang.String",
+    "description": "A description for 'jwt.refresh-expiration'"
+  },
+  {
+    "name": "security.cors.allowed-origins",
+    "type": "java.lang.String",
+    "description": "A description for 'security.cors.allowed-origins'"
+  },
+  {
+    "name": "security.cors.allowed-methods",
+    "type": "java.lang.String",
+    "description": "A description for 'security.cors.allowed-methods'"
+  },
+  {
+    "name": "security.cors.allowed-headers",
+    "type": "java.lang.String",
+    "description": "A description for 'security.cors.allowed-headers'"
+  },
+  {
+    "name": "security.cors.allow-credentials",
+    "type": "java.lang.String",
+    "description": "A description for 'security.cors.allow-credentials'"
+  },
+  {
+    "name": "app.oauth2.redirect-url",
+    "type": "java.lang.String",
+    "description": "A description for 'app.oauth2.redirect-url'"
+  },
+  {
+    "name": "support.email",
+    "type": "java.lang.String",
+    "description": "A description for 'support.email'"
+  },
+  {
+    "name": "app.mail.from",
+    "type": "java.lang.String",
+    "description": "A description for 'app.mail.from'"
+  }
+]}
