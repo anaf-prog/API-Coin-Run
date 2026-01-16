@@ -1,4 +1,4 @@
-package com.anafXsamsul.dto;
+package com.anafXsamsul.dto.auth;
 
 import com.anafXsamsul.notation.ValidEmailDomain;
 
@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class ForgotPasswordRequest {
+public class ResendOtpRequest {
 
     @NotBlank
     @ValidEmailDomain

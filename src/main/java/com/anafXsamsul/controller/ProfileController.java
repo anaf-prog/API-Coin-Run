@@ -10,10 +10,9 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import com.anafXsamsul.dto.ApiResponse;
-import com.anafXsamsul.dto.UpdateProfileRequest;
-import com.anafXsamsul.dto.UserProfileResponse;
+import com.anafXsamsul.dto.profile.UpdateProfileRequest;
+import com.anafXsamsul.dto.profile.UserProfileResponse;
 import com.anafXsamsul.service.ProfileService;
-
 import jakarta.validation.Valid;
 
 @RestController

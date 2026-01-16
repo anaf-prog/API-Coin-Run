@@ -11,9 +11,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import com.anafXsamsul.PrettyPrintResultHandler;
-import com.anafXsamsul.dto.LoginRequest;
-import com.anafXsamsul.dto.RegisterRequest;
-import com.anafXsamsul.dto.VerifyOtpRequest;
+import com.anafXsamsul.dto.auth.LoginRequest;
+import com.anafXsamsul.dto.auth.RegisterRequest;
+import com.anafXsamsul.dto.auth.VerifyOtpRequest;
 import com.anafXsamsul.entity.Users;
 import com.anafXsamsul.repository.UserRepository;
 import com.anafXsamsul.service.EmailService;
@@ -310,8 +310,13 @@ public class AuthControllerTest {
         Users user = new Users();
         user.setEmail("verify@gmail.com");
         user.setUsername("verifyuser");
-        user.setPassword(passwordEncoder.encode("Password123@."));
+        user.setPassword("Password123@.");
         user.setPhoneNumber("089606891271");
+        user.setCreatedAt(LocalDateTime.now().withNano(0));
+        user.setStatus(Users.UserStatus.ACTIVE);
+        user.setOtpCode("123456");
+        user.setOtpExpiredAt(LocalDateTime.now().plusMinutes(5));
+        user.setEmailVerified(false);
         userRepository.save(user);
 
         LoginRequest request = new LoginRequest();

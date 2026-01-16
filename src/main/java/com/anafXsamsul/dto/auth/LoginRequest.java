@@ -1,4 +1,4 @@
-package com.anafXsamsul.dto;
+package com.anafXsamsul.dto.auth;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;

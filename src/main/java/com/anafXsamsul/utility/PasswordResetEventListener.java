@@ -4,8 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-
-import com.anafXsamsul.dto.PasswordResetSuccessEvent;
+import com.anafXsamsul.dto.resetpassword.PasswordResetSuccessEvent;
 import com.anafXsamsul.service.EmailService;
 
 @Component

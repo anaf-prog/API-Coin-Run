@@ -6,12 +6,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import com.anafXsamsul.dto.ApiResponse;
-import com.anafXsamsul.dto.ForgotPasswordRequest;
-import com.anafXsamsul.dto.ResetPasswordRequest;
+import com.anafXsamsul.dto.resetpassword.ForgotPasswordRequest;
+import com.anafXsamsul.dto.resetpassword.ResetPasswordRequest;
 import com.anafXsamsul.service.ResetPasswordService;
-
 import jakarta.validation.Valid;
 
 @RestController

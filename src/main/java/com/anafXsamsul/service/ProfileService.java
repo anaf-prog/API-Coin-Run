@@ -5,13 +5,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Map;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import com.anafXsamsul.dto.UpdateProfileRequest;
-import com.anafXsamsul.dto.UserProfileResponse;
+import com.anafXsamsul.dto.profile.UpdateProfileRequest;
+import com.anafXsamsul.dto.profile.UserProfileResponse;
 import com.anafXsamsul.entity.UserProfile;
 import com.anafXsamsul.entity.Users;
 import com.anafXsamsul.error.custom.BusinessException;

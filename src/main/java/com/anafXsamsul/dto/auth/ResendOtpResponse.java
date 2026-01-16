@@ -1,4 +1,4 @@
-package com.anafXsamsul.dto;
+package com.anafXsamsul.dto.auth;
 
 import java.time.LocalDateTime;
 
@@ -11,11 +11,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class PasswordResetSuccessEvent {
+public class ResendOtpResponse {
 
-    private String email;
-    private String username;
-    private LocalDateTime resetTime;
+    private String info;
+    private LocalDateTime otpSentAt;
+    private LocalDateTime otpExpiredAt;
     
 }
-

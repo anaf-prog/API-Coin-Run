@@ -1,4 +1,4 @@
-package com.anafXsamsul.dto;
+package com.anafXsamsul.dto.resetpassword;
 
 import com.anafXsamsul.notation.ValidEmailDomain;
 import jakarta.validation.constraints.NotBlank;

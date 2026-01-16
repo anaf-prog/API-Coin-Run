@@ -1,11 +1,9 @@
-package com.anafXsamsul.dto;
+package com.anafXsamsul.dto.profile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-
 import com.anafXsamsul.entity.Users;
 import com.fasterxml.jackson.annotation.JsonFormat;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

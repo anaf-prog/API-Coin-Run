@@ -1,4 +1,4 @@
-package com.anafXsamsul.dto;
+package com.anafXsamsul.dto.profile;
 
 import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.constraints.Pattern;

@@ -10,13 +10,14 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import com.anafXsamsul.dto.ApiResponse;
-import com.anafXsamsul.dto.AuthResponse;
-import com.anafXsamsul.dto.LoginRequest;
-import com.anafXsamsul.dto.LoginResponse;
-import com.anafXsamsul.dto.RegisterRequest;
-import com.anafXsamsul.dto.VerifyOtpRequest;
+import com.anafXsamsul.dto.auth.AuthResponse;
+import com.anafXsamsul.dto.auth.LoginRequest;
+import com.anafXsamsul.dto.auth.LoginResponse;
+import com.anafXsamsul.dto.auth.RegisterRequest;
+import com.anafXsamsul.dto.auth.ResendOtpRequest;
+import com.anafXsamsul.dto.auth.ResendOtpResponse;
+import com.anafXsamsul.dto.auth.VerifyOtpRequest;
 import com.anafXsamsul.service.AuthService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -53,6 +54,20 @@ public class AuthController {
         .build();
 
         return ResponseEntity.status(200).body(apiResponse);
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<ApiResponse<ResendOtpResponse>> resendOtp(@RequestBody @Valid ResendOtpRequest request) {
+
+        ResendOtpResponse response = authService.resendOtp(request.getEmail());
+
+        ApiResponse<ResendOtpResponse> apiResponse = ApiResponse.<ResendOtpResponse>builder()
+            .statusCode(200)
+            .message("success")
+            .data(response)
+        .build();
+
+        return ResponseEntity.ok(apiResponse);
     }
 
     @PostMapping("/login")

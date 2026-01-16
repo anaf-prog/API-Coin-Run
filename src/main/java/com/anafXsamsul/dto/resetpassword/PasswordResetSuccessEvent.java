@@ -1,5 +1,6 @@
-package com.anafXsamsul.dto;
+package com.anafXsamsul.dto.resetpassword;
 
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,9 +10,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class VerifyOtpRequest {
+public class PasswordResetSuccessEvent {
 
     private String email;
-    private String otp;
-
+    private String username;
+    private LocalDateTime resetTime;
+    
 }
+

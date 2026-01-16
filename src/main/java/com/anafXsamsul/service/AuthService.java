@@ -7,14 +7,16 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import com.anafXsamsul.dto.AuthResponse;
-import com.anafXsamsul.dto.LoginRequest;
-import com.anafXsamsul.dto.LoginResponse;
-import com.anafXsamsul.dto.RegisterRequest;
-import com.anafXsamsul.dto.VerifyOtpRequest;
+import com.anafXsamsul.dto.auth.AuthResponse;
+import com.anafXsamsul.dto.auth.LoginRequest;
+import com.anafXsamsul.dto.auth.LoginResponse;
+import com.anafXsamsul.dto.auth.RegisterRequest;
+import com.anafXsamsul.dto.auth.ResendOtpResponse;
+import com.anafXsamsul.dto.auth.VerifyOtpRequest;
 import com.anafXsamsul.entity.UserProfile;
 import com.anafXsamsul.entity.Users;
 import com.anafXsamsul.entity.Users.AuthProvider;
+import com.anafXsamsul.entity.Users.UserStatus;
 import com.anafXsamsul.error.custom.EmailAlreadyExistException;
 import com.anafXsamsul.error.custom.LoginEmailOrUsernameException;
 import com.anafXsamsul.error.custom.UserNameAlreadyExistException;
@@ -173,10 +175,53 @@ public class AuthService {
     }
 
     @Transactional
+    public ResendOtpResponse resendOtp(String email) {
+        Users user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new LoginEmailOrUsernameException("Email tidak terdaftar"));
+        
+        String newOtp = generateOtp.generate();
+        LocalDateTime otpExpiry = LocalDateTime.now().withNano(0).plusMinutes(5);
+
+        user.setOtpCode(newOtp);
+        user.setOtpExpiredAt(otpExpiry);
+        user.setUpdatedAt(LocalDateTime.now().withNano(0));
+        userRepository.save(user);
+
+        try {
+            emailService.sendOtpEmail(
+                user.getEmail(),
+                user.getUsername(),
+                newOtp);
+            log.info("OTP berhasil dikirim ulang ke: {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Gagal mengirim OTP ulang ke: {}, error: {}", user.getEmail(), e.getMessage());
+            throw new LoginEmailOrUsernameException("Gagal mengirim OTP. Silakan coba lagi.");
+        }
+
+        return ResendOtpResponse.builder()
+            .info("OTP berhasil dikirim")
+            .otpSentAt(LocalDateTime.now().withNano(0))
+            .otpExpiredAt(otpExpiry)
+        .build();
+    }
+
+    @Transactional
     public LoginResponse login(LoginRequest request) {
 
         Users user = userRepository.findByEmailOrUsername(request.getEmailOrUsername())
             .orElseThrow(() -> new LoginEmailOrUsernameException());
+
+        if (user.getStatus() == UserStatus.CLOSED) {
+            throw new LoginEmailOrUsernameException("Akun tidak ditemukan / akun telah dihapus");
+        }
+        
+        if (user.getStatus() == UserStatus.SUSPENDED) {
+            throw new LoginEmailOrUsernameException("Akun anda dibekukan karena terdeteksi aktivitas mecurigakan, segera hubungi customer service untuk tindakan lebih lanjut");
+        }
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new LoginEmailOrUsernameException("Proses registrasi belum selesai");
+        }
 
         Authentication authentication = authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(
