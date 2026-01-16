@@ -1,9 +1,6 @@
 package com.anafXsamsul.dto;
 
-import java.time.LocalDate;
-
-import com.fasterxml.jackson.annotation.JsonFormat;
-
+import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,10 +15,7 @@ public class UpdateProfileRequest {
 
     private String firstName;
     private String lastName;
-
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy")
-    private LocalDate dateOfBirth;
-    
+    private String dateOfBirth;
     private String address;
     private String city;
     private String countryCode;
@@ -33,6 +27,6 @@ public class UpdateProfileRequest {
     )
     private String phoneNumber;
     
-    private String profileImageUrl;
+    private MultipartFile profileImage;
     
 }

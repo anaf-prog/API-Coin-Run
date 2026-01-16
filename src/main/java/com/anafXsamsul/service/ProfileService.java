@@ -1,6 +1,11 @@
 package com.anafXsamsul.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -9,10 +14,11 @@ import com.anafXsamsul.dto.UpdateProfileRequest;
 import com.anafXsamsul.dto.UserProfileResponse;
 import com.anafXsamsul.entity.UserProfile;
 import com.anafXsamsul.entity.Users;
+import com.anafXsamsul.error.custom.BusinessException;
+import com.anafXsamsul.error.custom.ImageException;
 import com.anafXsamsul.repository.UserProfileRepository;
 import com.anafXsamsul.repository.UserRepository;
 import com.anafXsamsul.security.CustomUserDetails;
-
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,6 +31,9 @@ public class ProfileService {
 
     @Autowired
     private UserProfileRepository userProfileRepository;
+
+    @Autowired
+    private CloudinaryService cloudinaryService;
 
     public UserProfileResponse getMyProfile() {
 
@@ -50,12 +59,42 @@ public class ProfileService {
         // Update profile fields
         userProfile.setFirstName(request.getFirstName());
         userProfile.setLastName(request.getLastName());
-        userProfile.setDateOfBirth(request.getDateOfBirth());
+
+        if (request.getDateOfBirth() != null) {
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+                LocalDate dob = LocalDate.parse(request.getDateOfBirth(), formatter);
+                userProfile.setDateOfBirth(dob);
+            } catch (DateTimeParseException e) {
+                throw new BusinessException("Format tanggal lahir harus dd-MM-yyyy");
+            }
+        }
+
         userProfile.setAddress(request.getAddress());
         userProfile.setCity(request.getCity());
         userProfile.setCountryCode(request.getCountryCode());
         userProfile.setPostalCode(request.getPostalCode());
-        userProfile.setUpdatedAt(LocalDateTime.now());
+        userProfile.setUpdatedAt(LocalDateTime.now().withNano(0));
+
+        if (request.getProfileImage() != null && !request.getProfileImage().isEmpty()) {
+            try {
+
+                String oldPublic = userProfile.getProfileImageId();
+
+                Map<String, String> uploadResult = cloudinaryService.uplodaImage(request.getProfileImage(), "profile");
+
+                userProfile.setProfileImageUrl(uploadResult.get("url"));
+                userProfile.setProfileImageId(uploadResult.get("publicId"));
+
+                if (oldPublic != null) {
+                    cloudinaryService.deleteImage(oldPublic);
+                }
+                
+            } catch (Exception e) {
+                log.error("Gagal upload foto profile : {} ", e.getMessage());
+                throw new ImageException("Gagal upload foto");
+            }
+        }
         
         // Save profile
         userProfileRepository.save(userProfile);

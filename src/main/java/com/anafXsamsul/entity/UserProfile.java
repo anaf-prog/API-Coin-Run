@@ -54,6 +54,9 @@ public class UserProfile {
     
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
+
+    @Column(name = "profile_image_id")
+    private String profileImageId;
     
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
