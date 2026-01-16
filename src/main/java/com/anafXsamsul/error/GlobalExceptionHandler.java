@@ -1,18 +1,19 @@
 package com.anafXsamsul.error;
+
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-
 import com.anafXsamsul.dto.ApiResponse;
 import com.anafXsamsul.error.custom.BusinessException;
-
 import lombok.extern.slf4j.Slf4j;
 
 @RestControllerAdvice
@@ -101,6 +102,37 @@ public class GlobalExceptionHandler {
         return ResponseEntity.notFound().build();
     }
 
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBindException(BindException ex) {
+
+        log.error("Error binding request : {}", ex.getMessage());
+
+        String message = ex.getFieldErrors()
+            .stream()
+            .findFirst()
+            .map(FieldError::getDefaultMessage)
+        .orElse("Format tidak valid");
+
+        return ResponseEntity.badRequest().body(
+            ApiResponse.<Void>builder()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .message(message)
+                .data(null)
+                .build());
+    }
+
+    @ExceptionHandler(TypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(TypeMismatchException ex) {
+
+        log.error("Type mismatch error : {}", ex.getMessage());
+
+        return ResponseEntity.badRequest().body(
+            ApiResponse.<Void>builder()
+                .statusCode(HttpStatus.BAD_REQUEST.value())
+                .message("Format data tidak sesuai")
+                .data(null)
+                .build());
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception ex) {

@@ -13,5 +13,12 @@ public class BusinessException extends RuntimeException {
     public BusinessException(String message) {
         super(message);
     }
+
+    /**
+     * Exception bussiness custom dengan pesan default.
+     */
+    public BusinessException() {
+        super("Other Error");
+    }
     
 }
