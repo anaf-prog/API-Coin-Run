@@ -107,6 +107,14 @@ public class ProfileService {
     private Users getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new BusinessException("Silahkan login ulang");
+        }
+
+        if (!(authentication.getPrincipal() instanceof CustomUserDetails)) {
+            throw new BusinessException("Silahkan login ulang");
+        }
+
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
 
         return userDetails.getUser();
