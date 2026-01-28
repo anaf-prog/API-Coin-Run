@@ -1,15 +1,22 @@
 package com.anafXsamsul.service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.CookieValue;
 import com.anafXsamsul.dto.auth.AuthResponse;
 import com.anafXsamsul.dto.auth.LoginRequest;
 import com.anafXsamsul.dto.auth.LoginResponse;
+import com.anafXsamsul.dto.auth.RegisterEmailRequest;
+import com.anafXsamsul.dto.auth.RegisterEmailResponse;
 import com.anafXsamsul.dto.auth.RegisterRequest;
 import com.anafXsamsul.dto.auth.ResendOtpResponse;
 import com.anafXsamsul.dto.auth.VerifyOtpRequest;
@@ -17,6 +24,7 @@ import com.anafXsamsul.entity.UserProfile;
 import com.anafXsamsul.entity.Users;
 import com.anafXsamsul.entity.Users.AuthProvider;
 import com.anafXsamsul.entity.Users.UserStatus;
+import com.anafXsamsul.error.custom.BusinessException;
 import com.anafXsamsul.error.custom.EmailAlreadyExistException;
 import com.anafXsamsul.error.custom.LoginEmailOrUsernameException;
 import com.anafXsamsul.error.custom.UserNameAlreadyExistException;
@@ -25,6 +33,7 @@ import com.anafXsamsul.repository.UserRepository;
 import com.anafXsamsul.security.CustomUserDetails;
 import com.anafXsamsul.security.JwtService;
 import com.anafXsamsul.utility.GenerateOtp;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,63 +63,28 @@ public class AuthService {
     private EmailService emailService;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public RegisterEmailResponse registerEmail(RegisterEmailRequest request, HttpServletResponse response) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new EmailAlreadyExistException();
+            throw new EmailAlreadyExistException("Email sudah terdaftar");
         }
 
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new UserNameAlreadyExistException();
-        }
+        String newOtp = generateOtp.generate();
+        String otpToken = UUID.randomUUID().toString();
+        LocalDateTime otpExpiry = LocalDateTime.now().withNano(0).plusMinutes(5);
 
         Users user = new Users();
         user.setEmail(request.getEmail());
-        user.setUsername(request.getUsername());
-        user.setPhoneNumber(request.getPhoneNumber());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setProvider(AuthProvider.LOCAL);
-        user.setStatus(Users.UserStatus.PENDING);
-        user.setRole(Users.UserRole.USER);
+        user.setStatus(UserStatus.PENDING);
         user.setCreatedAt(LocalDateTime.now().withNano(0));
 
         // === OTP ===
-        String otp = generateOtp.generate();
-        user.setOtpCode(otp);
-        user.setOtpExpiredAt(LocalDateTime.now().plusMinutes(5));
+        user.setOtpCode(newOtp);
+        user.setOtpToken(otpToken);
+        user.setOtpExpiredAt(otpExpiry);
         user.setEmailVerified(false);
 
         Users savedUser = userRepository.save(user);
-
-        UserProfile profile = new UserProfile();
-        profile.setUser(savedUser);
-
-        // Ekstrak nama depan dari email
-        String email = savedUser.getEmail();
-        String emailPart = email.split("@")[0];
-
-        // Bersihkan karakter kusus dan angka
-        String cleanName = emailPart.replaceAll("[^a-zA-Z]", " ");
-        cleanName = cleanName.replaceAll("\\s+", " ").trim();
-
-        // Pecah jadi kata kata
-        String[] namePart = cleanName.split("\\s+");
-
-        if (namePart.length >= 1) {
-            profile.setFirstName(namePart[0]);
-        }
-
-        if (namePart.length >= 2) {
-            profile.setLastName(namePart[1]);
-
-        } else {
-            profile.setFirstName(namePart[0]);
-            profile.setLastName("");
-        }
-
-        profile.setUpdatedAt(LocalDateTime.now().withNano(0));
-
-        userProfileRepository.save(profile);
 
         try {
 
@@ -118,33 +92,44 @@ public class AuthService {
             emailService.sendOtpEmail(
                 savedUser.getEmail(),
                 savedUser.getUsername(),
-                otp);
+            newOtp);
 
-            log.info("Email OTP berhasil dikirim");    
-            
+            log.info("Email OTP berhasil dikirim");
+
         } catch (Exception e) {
             log.error("Gagal kirim email otp ke : {} karena {} ", user.getEmail(), e.getMessage());
         }
 
-        return AuthResponse.builder()
-            .userId(savedUser.getId())
-            .username(savedUser.getUsername())
-            .email(savedUser.getEmail())
-            .phoneNumber(savedUser.getPhoneNumber())
-            .role(savedUser.getRole())
-            .status(savedUser.getStatus())
-            .createdAt(savedUser.getCreatedAt())
+        if (otpToken == null) {
+            throw new LoginEmailOrUsernameException("OTP token tidak ditemukan");
+        }
+
+        ResponseCookie cookie = ResponseCookie.from("OTP_TOKEN", otpToken)
+            .httpOnly(true)
+            .secure(false)
+            .path("/")
+            .maxAge(Duration.ofMinutes(5))
+            .sameSite("Strict")
         .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        return RegisterEmailResponse.builder()
+            .info("OTP berhasil dikirim")
+            .otpSentAt(LocalDateTime.now().withNano(0))
+            .otpExpiredAt(otpExpiry)
+        .build();
+
     }
 
     @Transactional
-    public AuthResponse verifyOtp(VerifyOtpRequest request) {
+    public AuthResponse verifyOtp(VerifyOtpRequest request,  @CookieValue("OTP_TOKEN") String otpToken) {
 
-        Users user = userRepository.findByEmail(request.getEmail())
-            .orElseThrow(() -> new LoginEmailOrUsernameException("Email tidak terdaftar"));
+        Users user = userRepository.findByOtpToken(otpToken)
+            .orElseThrow(() -> new LoginEmailOrUsernameException("OTP tidak valid"));
 
         if (Boolean.TRUE.equals(user.getEmailVerified())) {
-            throw new LoginEmailOrUsernameException("Email tidak valid");
+            throw new LoginEmailOrUsernameException("Email sudah terverifikasi");
         }
 
         if (!request.getOtp().equals(user.getOtpCode())) {
@@ -173,6 +158,60 @@ public class AuthService {
             .createdAt(savedUser.getCreatedAt())
         .build();
     }
+
+
+    @Transactional
+    public AuthResponse register(RegisterRequest request, @CookieValue(value = "OTP_TOKEN", required = false) String otpToken) {
+
+        Users user = userRepository.findByOtpToken(otpToken)
+            .orElseThrow(() -> new BusinessException("Session registrasi tidak valid"));
+
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new UserNameAlreadyExistException("Username sudah terdaftar");
+        }    
+
+        if (!Boolean.TRUE.equals(user.getEmailVerified())) {
+            throw new BusinessException("Email belum diverifikasi");
+        }
+
+        user.setUsername(request.getUsername());
+        user.setPhoneNumber(request.getPhoneNumber());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setProvider(AuthProvider.LOCAL);
+        user.setRole(Users.UserRole.USER);
+        user.setUpdatedAt(LocalDateTime.now().withNano(0));
+
+        user.setOtpToken(null);
+
+        Users savedUser = userRepository.save(user);
+
+        // ===== PROFILE =====
+        UserProfile profile = new UserProfile();
+        profile.setUser(savedUser);
+
+        String emailPart = savedUser.getEmail().split("@")[0];
+        String cleanName = emailPart.replaceAll("[^a-zA-Z]", " ")
+            .replaceAll("\\s+", " ")
+            .trim();
+
+        String[] namePart = cleanName.split("\\s+");
+        profile.setFirstName(namePart[0]);
+        profile.setLastName(namePart.length > 1 ? namePart[1] : "");
+        profile.setUpdatedAt(LocalDateTime.now().withNano(0));
+
+        userProfileRepository.save(profile);
+
+        return AuthResponse.builder()
+            .userId(savedUser.getId())
+            .username(savedUser.getUsername())
+            .email(savedUser.getEmail())
+            .phoneNumber(savedUser.getPhoneNumber())
+            .role(savedUser.getRole())
+            .status(savedUser.getStatus())
+            .createdAt(savedUser.getCreatedAt())
+        .build();
+    }
+
 
     @Transactional
     public ResendOtpResponse resendOtp(String email) {

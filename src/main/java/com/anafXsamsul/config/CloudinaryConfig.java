@@ -22,7 +22,10 @@ public class CloudinaryConfig {
     private String apiSecret;
 
     @Bean
-    Cloudinary cloudinary() {
+    public Cloudinary cloudinary() {
+        if (cloudName == null || apiKey == null || apiSecret == null) {
+            throw new RuntimeException("Cloudinary configuration missing! Check environment variables.");
+        }
         Map<String, String> config = new HashMap<>();
         config.put("cloud_name", cloudName);
         config.put("api_key", apiKey);

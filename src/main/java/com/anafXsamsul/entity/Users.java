@@ -30,7 +30,8 @@ import lombok.ToString;
         @Index(name = "idx_users_email", columnList = "email"),
         @Index(name = "idx_users_status", columnList = "status"),
         @Index(name = "idx_users_provider", columnList = "provider"),
-        @Index(name = "idx_users_provider_id", columnList = "provider_id")
+        @Index(name = "idx_users_provider_id", columnList = "provider_id"),
+        @Index(name = "idx_users_otp_token", columnList = "otp_token")
 })
 @Data
 @NoArgsConstructor
@@ -92,6 +93,9 @@ public class Users {
 
     @Column(name = "otp_code")
     private String otpCode;
+
+    @Column(name = "otp_token", length = 255, unique = true)
+    private String otpToken;
 
     @Column(name = "otp_expired_at")
     private LocalDateTime otpExpiredAt;

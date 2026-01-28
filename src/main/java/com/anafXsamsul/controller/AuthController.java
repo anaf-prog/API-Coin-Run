@@ -2,9 +2,9 @@ package com.anafXsamsul.controller;
 
 import java.time.LocalDateTime;
 import java.util.Map;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,13 +14,15 @@ import com.anafXsamsul.dto.ApiResponse;
 import com.anafXsamsul.dto.auth.AuthResponse;
 import com.anafXsamsul.dto.auth.LoginRequest;
 import com.anafXsamsul.dto.auth.LoginResponse;
+import com.anafXsamsul.dto.auth.RegisterEmailRequest;
+import com.anafXsamsul.dto.auth.RegisterEmailResponse;
 import com.anafXsamsul.dto.auth.RegisterRequest;
 import com.anafXsamsul.dto.auth.ResendOtpRequest;
 import com.anafXsamsul.dto.auth.ResendOtpResponse;
 import com.anafXsamsul.dto.auth.VerifyOtpRequest;
 import com.anafXsamsul.service.AuthService;
-
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 @RestController
@@ -30,9 +32,22 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
+    @PostMapping("/register-email")
+    public ResponseEntity<ApiResponse<RegisterEmailResponse>> registerEmail( @Valid @RequestBody RegisterEmailRequest request, HttpServletResponse httpResponse) {
+        RegisterEmailResponse response = authService.registerEmail(request, httpResponse);
+
+        ApiResponse<RegisterEmailResponse> apiResponse = ApiResponse.<RegisterEmailResponse>builder()
+            .statusCode(200)
+            .message("success")
+            .data(response)
+        .build();
+
+        return ResponseEntity.ok(apiResponse);
+    }
+
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
-        AuthResponse response = authService.register(request);
+    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request, @CookieValue("OTP_TOKEN") String otpToken) {
+        AuthResponse response = authService.register(request, otpToken);
 
         ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
             .statusCode(200)
@@ -44,17 +59,18 @@ public class AuthController {
     }
 
     @PostMapping("/verify-otp")
-    public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@RequestBody VerifyOtpRequest request) {
-        AuthResponse response = authService.verifyOtp(request);
+    public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@RequestBody VerifyOtpRequest request, @CookieValue("OTP_TOKEN") String otpToken) {
+        AuthResponse response = authService.verifyOtp(request, otpToken);
 
-        ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
-            .statusCode(200)
-            .message("success")
-            .data(response)
-        .build();
-
-        return ResponseEntity.status(200).body(apiResponse);
+        return ResponseEntity.ok(
+            ApiResponse.<AuthResponse>builder()
+                .statusCode(200)
+                .message("success")
+                .data(response)
+            .build()
+        );
     }
+
 
     @PostMapping("/resend-otp")
     public ResponseEntity<ApiResponse<ResendOtpResponse>> resendOtp(@RequestBody @Valid ResendOtpRequest request) {

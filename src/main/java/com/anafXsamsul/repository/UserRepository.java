@@ -43,5 +43,7 @@ public interface UserRepository extends JpaRepository<Users, Long>, JpaSpecifica
     @Query("SELECT COUNT(u) FROM Users u WHERE u.createdAt >= :startDate AND u.createdAt < :endDate")
     Long countNewUsers(@Param("startDate") LocalDateTime startDate, 
                        @Param("endDate") LocalDateTime endDate);
+
+    Optional<Users> findByOtpToken(String otpToken);
     
 }

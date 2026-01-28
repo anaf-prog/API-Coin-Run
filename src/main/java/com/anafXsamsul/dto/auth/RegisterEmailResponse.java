@@ -1,5 +1,7 @@
 package com.anafXsamsul.dto.auth;
 
+import java.time.LocalDateTime;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,8 +11,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class VerifyOtpRequest {
-
-    private String otp;
-
+public class RegisterEmailResponse {
+    private String info;
+    private LocalDateTime otpSentAt;
+    private LocalDateTime otpExpiredAt;
 }
