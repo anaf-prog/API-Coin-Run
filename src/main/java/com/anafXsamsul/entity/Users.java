@@ -127,7 +127,7 @@ public class Users {
 
     // ============ ENUMS ============
     public enum UserStatus {
-        ACTIVE, SUSPENDED, CLOSED, PENDING
+        ACTIVE, SUSPENDED, CLOSED, PENDING, REGISTER
     }
 
     public enum KycStatus {

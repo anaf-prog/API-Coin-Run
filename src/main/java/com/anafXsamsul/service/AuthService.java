@@ -75,7 +75,7 @@ public class AuthService {
 
         Users user = new Users();
         user.setEmail(request.getEmail());
-        user.setStatus(UserStatus.PENDING);
+        user.setStatus(UserStatus.REGISTER);
         user.setCreatedAt(LocalDateTime.now().withNano(0));
 
         // === OTP ===

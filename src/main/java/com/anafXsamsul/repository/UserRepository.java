@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.anafXsamsul.entity.Users;
+import com.anafXsamsul.entity.Users.UserStatus;
 
 @Repository
 public interface UserRepository extends JpaRepository<Users, Long>, JpaSpecificationExecutor<Users> {
@@ -45,5 +46,7 @@ public interface UserRepository extends JpaRepository<Users, Long>, JpaSpecifica
                        @Param("endDate") LocalDateTime endDate);
 
     Optional<Users> findByOtpToken(String otpToken);
+
+    List<Users> findByStatusAndOtpExpiredAtBefore(UserStatus register, LocalDateTime now);
     
 }
