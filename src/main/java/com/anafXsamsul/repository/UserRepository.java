@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,13 +14,10 @@ import org.springframework.stereotype.Repository;
 import com.anafXsamsul.entity.Users;
 import com.anafXsamsul.entity.Users.UserStatus;
 
+import jakarta.transaction.Transactional;
+
 @Repository
 public interface UserRepository extends JpaRepository<Users, Long>, JpaSpecificationExecutor<Users> {
-
-    @Query("SELECT u FROM Users u WHERE u.email = :identifier OR u.username = :identifier")
-
-    Optional<Users> findById(Long userId);
-
     List<Users> findAllByRole(Users.UserRole role);
 
     @Query("""
@@ -35,18 +33,24 @@ public interface UserRepository extends JpaRepository<Users, Long>, JpaSpecifica
     Optional<Users> findByUsername(String username);
     boolean existsByEmail(String email);
     boolean existsByUsername(String username);
-    List<Users> findByStatus(Users.UserStatus status);
-    List<Users> findByRole(Users.UserRole role);
-    
-    @Query("SELECT u FROM Users u WHERE u.lastLoginAt < :date AND u.status = 'ACTIVE'")
-    List<Users> findInactiveUsers(@Param("date") LocalDateTime date);
-    
-    @Query("SELECT COUNT(u) FROM Users u WHERE u.createdAt >= :startDate AND u.createdAt < :endDate")
-    Long countNewUsers(@Param("startDate") LocalDateTime startDate, 
-                       @Param("endDate") LocalDateTime endDate);
 
     Optional<Users> findByOtpToken(String otpToken);
 
     List<Users> findByStatusAndOtpExpiredAtBefore(UserStatus register, LocalDateTime now);
+
+    @Modifying
+    @Query(value = "UPDATE users SET failed_attempts = failed_attempts + 1 WHERE id = :userId", nativeQuery = true)
+    @Transactional
+    void incrementFailedAttempts(@Param("userId") Long userId);
+
+    @Modifying
+    @Query(value = "UPDATE users SET failed_attempts = failed_attempts + 1, " + "locked_until = :lockedUntil WHERE id = :userId", nativeQuery = true)
+    @Transactional
+    void lockAccount(@Param("userId") Long userId,@Param("lockedUntil") LocalDateTime lockedUntil);
+
+    @Modifying
+    @Query(value = "UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = :userId", nativeQuery = true)
+    @Transactional
+    void resetFailedAttempts(@Param("userId") Long userId);
     
 }

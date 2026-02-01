@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import com.anafXsamsul.dto.ApiResponse;
 import com.anafXsamsul.error.custom.BusinessException;
+
+import jakarta.persistence.OptimisticLockException;
 import lombok.extern.slf4j.Slf4j;
 
 @RestControllerAdvice
@@ -54,6 +56,20 @@ public class GlobalExceptionHandler {
             .build()
         );
     }
+
+    @ExceptionHandler(OptimisticLockException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(OptimisticLockException ex) {
+        log.warn("Optimistic lock terjadi saat update login attempt");
+
+        return ResponseEntity.status(409).body(
+            ApiResponse.<Void>builder()
+                .statusCode(409)
+                .message("Permintaan sedang diproses. Silakan coba lagi.")
+                .data(null)
+                .build()
+        );
+    }
+
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {

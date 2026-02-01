@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +21,7 @@ import com.anafXsamsul.dto.auth.RegisterEmailResponse;
 import com.anafXsamsul.dto.auth.RegisterRequest;
 import com.anafXsamsul.dto.auth.ResendOtpResponse;
 import com.anafXsamsul.dto.auth.VerifyOtpRequest;
+import com.anafXsamsul.entity.LoginHistory;
 import com.anafXsamsul.entity.UserProfile;
 import com.anafXsamsul.entity.Users;
 import com.anafXsamsul.entity.Users.AuthProvider;
@@ -28,6 +30,7 @@ import com.anafXsamsul.error.custom.BusinessException;
 import com.anafXsamsul.error.custom.EmailAlreadyExistException;
 import com.anafXsamsul.error.custom.LoginEmailOrUsernameException;
 import com.anafXsamsul.error.custom.UserNameAlreadyExistException;
+import com.anafXsamsul.repository.LoginHistoryRepository;
 import com.anafXsamsul.repository.UserProfileRepository;
 import com.anafXsamsul.repository.UserRepository;
 import com.anafXsamsul.security.CustomUserDetails;
@@ -48,6 +51,9 @@ public class AuthService {
     private UserProfileRepository userProfileRepository;
 
     @Autowired
+    private LoginHistoryRepository loginHistoryRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
@@ -55,6 +61,9 @@ public class AuthService {
 
     @Autowired
     private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private LoginAttemptService loginAttemptService;
 
     @Autowired
     private GenerateOtp generateOtp;
@@ -86,6 +95,8 @@ public class AuthService {
 
         Users savedUser = userRepository.save(user);
 
+        log.info("Otp Token buat cookie : " + otpToken);
+
         try {
 
             // Kirim OTP ke email
@@ -104,6 +115,7 @@ public class AuthService {
             throw new LoginEmailOrUsernameException("OTP token tidak ditemukan");
         }
 
+        // settingan cookie di dev
         ResponseCookie cookie = ResponseCookie.from("OTP_TOKEN", otpToken)
             .httpOnly(true)
             .secure(false)
@@ -112,6 +124,15 @@ public class AuthService {
             .sameSite("Strict")
         .build();
 
+        // settingan cookie di server
+        // ResponseCookie cookie = ResponseCookie.from("OTP_TOKEN", otpToken)
+        //     .httpOnly(true)
+        //     .secure(true)
+        //     .path("/") 
+        //     .sameSite("None") 
+        // .build();
+
+    
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
         return RegisterEmailResponse.builder()
@@ -123,7 +144,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse verifyOtp(VerifyOtpRequest request,  @CookieValue("OTP_TOKEN") String otpToken) {
+    public AuthResponse verifyOtp(VerifyOtpRequest request, @CookieValue(value = "OTP_TOKEN", required = false) String otpToken) {
 
         Users user = userRepository.findByOtpToken(otpToken)
             .orElseThrow(() -> new LoginEmailOrUsernameException("OTP tidak valid"));
@@ -245,55 +266,90 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResponse login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request, String ip, String userAgent) {
 
         Users user = userRepository.findByEmailOrUsername(request.getEmailOrUsername())
             .orElseThrow(() -> new LoginEmailOrUsernameException());
 
+        log.info("Loaded user - ID: {}, Email: {}, FailedAttempts: {}, LockedUntil: {}",
+                user.getId(), user.getEmail(), user.getFailedAttempts(), user.getLockedUntil());
+
         if (user.getStatus() == UserStatus.CLOSED) {
+            saveLoginHistory(user, ip, userAgent, false, "Account close");
             throw new LoginEmailOrUsernameException("Akun tidak ditemukan / akun telah dihapus");
         }
-        
+
         if (user.getStatus() == UserStatus.SUSPENDED) {
-            throw new LoginEmailOrUsernameException("Akun anda dibekukan karena terdeteksi aktivitas mecurigakan, segera hubungi customer service untuk tindakan lebih lanjut");
+            throw new LoginEmailOrUsernameException("Akun anda dibekukan.");
         }
 
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new LoginEmailOrUsernameException("Proses registrasi belum selesai");
         }
 
-        Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(
-                request.getEmailOrUsername(), // Kirim identifier (email atau username)
-                request.getPassword()));
+        log.info("IP user yang login : {}", ip);
 
-        // Get user dari authentication
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        user = userDetails.getUser();
+        user = userRepository.findById(user.getId()).orElseThrow(() -> new LoginEmailOrUsernameException());
 
-        // Update last login
-        user.setLastLoginAt(LocalDateTime.now().withNano(0));
-        userRepository.save(user);
+        // Cek lock
+        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())) {
+            long minutesLeft = Duration.between(LocalDateTime.now(), user.getLockedUntil()).toMinutes();
 
-        // Generate token
-        var jwtToken = jwtService.generateToken(userDetails);
-        var refreshToken = jwtService.generateRefreshToken(userDetails);
+            throw new LoginEmailOrUsernameException("Akun terkunci. Coba lagi dalam " + minutesLeft + " menit");
+        }
 
-        log.debug("Login berhasil");
+        try {
+            Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmailOrUsername(), request.getPassword()));
 
-        return LoginResponse.builder()
-            .userId(user.getId())
-            .email(user.getEmail())
-            .username(user.getUsername())
-            .role(user.getRole())
-            .status(user.getStatus())
-            .kycStatus(user.getKycStatus())
-            .createdAt(user.getCreatedAt())
-            .provider(user.getProvider())
-            .lastLoginAt(user.getLastLoginAt().withNano(0))
-            .token(jwtToken)
-            .refreshToken(refreshToken)
-        .build();
+            user = userRepository.findById(user.getId()).orElseThrow();
+            user.setLastLoginAt(LocalDateTime.now().withNano(0));
+            user.setFailedAttempts(0);
+            userRepository.saveAndFlush(user);
+
+            saveLoginHistory(user, ip, userAgent, true, null);
+
+            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+            String jwtToken = jwtService.generateToken(userDetails);
+            String refreshToken = jwtService.generateRefreshToken(userDetails);
+
+            return LoginResponse.builder()
+                .userId(user.getId())
+                .email(user.getEmail())
+                .username(user.getUsername())
+                .role(user.getRole())
+                .status(user.getStatus())
+                .kycStatus(user.getKycStatus())
+                .createdAt(user.getCreatedAt())
+                .provider(user.getProvider())
+                .lastLoginAt(user.getLastLoginAt())
+                .token(jwtToken)
+                .refreshToken(refreshToken)
+            .build();
+
+        } catch (BadCredentialsException ex) {
+
+            Users refreshedUser = loginAttemptService.increaseFailedAttemptAndLockIfNeeded(user.getId());
+
+            if (refreshedUser.getLockedUntil() != null) {
+                throw new LoginEmailOrUsernameException("Terlalu banyak percobaan gagal. Akun terkunci 5 menit");
+            }
+
+            throw new LoginEmailOrUsernameException( "Email/username atau password salah. Percobaan " + refreshedUser.getFailedAttempts() + "/5");
+        }
+    }
+
+    public void saveLoginHistory(Users user, String ip, String userAgent, boolean success, String reason) {
+        LoginHistory history = new LoginHistory();
+        history.setUser(user);
+        history.setIpAddress(ip);
+        history.setUserAgent(userAgent);
+        history.setLocation(null);
+        history.setSuccess(success);
+        history.setFailureReason(reason);
+        history.setCreatedAt(LocalDateTime.now().withNano(0));
+
+        loginHistoryRepository.save(history);
+
     }
 
 }

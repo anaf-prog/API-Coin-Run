@@ -10,6 +10,7 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -43,6 +44,10 @@ public class Users {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    @Column(name = "version")
+    private Integer version = 0;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", length = 20, columnDefinition = "VARCHAR(20) DEFAULT 'USER'")
@@ -102,6 +107,12 @@ public class Users {
 
     @Column(name = "email_verified")
     private Boolean emailVerified = false;
+
+    @Column(name = "failed_attempts", nullable = false)
+    private Integer failedAttempts = 0;
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
 
     // ============ RELATIONS ============
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

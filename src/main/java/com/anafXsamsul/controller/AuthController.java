@@ -21,6 +21,8 @@ import com.anafXsamsul.dto.auth.ResendOtpRequest;
 import com.anafXsamsul.dto.auth.ResendOtpResponse;
 import com.anafXsamsul.dto.auth.VerifyOtpRequest;
 import com.anafXsamsul.service.AuthService;
+import com.anafXsamsul.service.ClientIpService;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -31,6 +33,9 @@ public class AuthController {
 
     @Autowired
     private AuthService authService;
+
+    @Autowired
+    private ClientIpService clientIpService;
 
     @PostMapping("/register-email")
     public ResponseEntity<ApiResponse<RegisterEmailResponse>> registerEmail( @Valid @RequestBody RegisterEmailRequest request, HttpServletResponse httpResponse) {
@@ -87,16 +92,15 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
-        LoginResponse response = authService.login(request);
+    public ResponseEntity<LoginResponse> login(
+            @RequestBody LoginRequest request,
+            HttpServletRequest servletRequest) {
 
-        ApiResponse<LoginResponse> apiResponse = ApiResponse.<LoginResponse>builder()
-            .statusCode(200)
-            .message("success")
-            .data(response)
-        .build();
+        String ip = clientIpService.getClientIp(servletRequest);
+        String userAgent = servletRequest.getHeader("User-Agent");
 
-        return ResponseEntity.ok(apiResponse);
+        LoginResponse response = authService.login(request, ip, userAgent);
+        return ResponseEntity.ok(response);
     }
 
     // Frontend akan langsung mengarahkan user ke endpoint OAuth2 di backend
