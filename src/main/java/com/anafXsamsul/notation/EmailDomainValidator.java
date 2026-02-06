@@ -12,7 +12,9 @@ public class EmailDomainValidator implements ConstraintValidator<ValidEmailDomai
         "outlook.com",
         "icloud.com",
         "yahoo.com",
-        "yahoo.co.id"
+        "yahoo.co.id",
+        "pelangi.co.id",
+        "samsul.dev"
     );
 
     @Override
