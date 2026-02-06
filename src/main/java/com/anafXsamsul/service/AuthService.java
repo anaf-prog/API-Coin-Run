@@ -4,8 +4,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -36,7 +34,6 @@ import com.anafXsamsul.repository.UserRepository;
 import com.anafXsamsul.security.CustomUserDetails;
 import com.anafXsamsul.security.JwtService;
 import com.anafXsamsul.utility.GenerateOtp;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
@@ -72,7 +69,7 @@ public class AuthService {
     private EmailService emailService;
 
     @Transactional
-    public RegisterEmailResponse registerEmail(RegisterEmailRequest request, HttpServletResponse response) {
+    public RegisterEmailResponse registerEmail(RegisterEmailRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new EmailAlreadyExistException("Email sudah terdaftar");
@@ -95,7 +92,7 @@ public class AuthService {
 
         Users savedUser = userRepository.save(user);
 
-        log.info("Otp Token buat cookie : " + otpToken);
+        log.debug("Otp Token buat cookie : " + otpToken);
 
         try {
 
@@ -115,30 +112,11 @@ public class AuthService {
             throw new LoginEmailOrUsernameException("OTP token tidak ditemukan");
         }
 
-        // settingan cookie di dev
-        ResponseCookie cookie = ResponseCookie.from("OTP_TOKEN", otpToken)
-            .httpOnly(true)
-            .secure(false)
-            .path("/")
-            .maxAge(Duration.ofMinutes(5))
-            .sameSite("Strict")
-        .build();
-
-        // settingan cookie di server
-        // ResponseCookie cookie = ResponseCookie.from("OTP_TOKEN", otpToken)
-        //     .httpOnly(true)
-        //     .secure(true)
-        //     .path("/") 
-        //     .sameSite("None") 
-        // .build();
-
-    
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-
         return RegisterEmailResponse.builder()
             .info("OTP berhasil dikirim")
             .otpSentAt(LocalDateTime.now().withNano(0))
             .otpExpiredAt(otpExpiry)
+            .otpToken(otpToken)
         .build();
 
     }

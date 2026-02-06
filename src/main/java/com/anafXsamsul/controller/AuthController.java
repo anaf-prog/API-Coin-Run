@@ -1,8 +1,11 @@
 package com.anafXsamsul.controller;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,13 +25,14 @@ import com.anafXsamsul.dto.auth.ResendOtpResponse;
 import com.anafXsamsul.dto.auth.VerifyOtpRequest;
 import com.anafXsamsul.service.AuthService;
 import com.anafXsamsul.service.ClientIpService;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/auth")
+@Slf4j
 public class AuthController {
 
     @Autowired
@@ -38,8 +42,32 @@ public class AuthController {
     private ClientIpService clientIpService;
 
     @PostMapping("/register-email")
-    public ResponseEntity<ApiResponse<RegisterEmailResponse>> registerEmail( @Valid @RequestBody RegisterEmailRequest request, HttpServletResponse httpResponse) {
-        RegisterEmailResponse response = authService.registerEmail(request, httpResponse);
+    public ResponseEntity<ApiResponse<RegisterEmailResponse>> registerEmail( @Valid @RequestBody RegisterEmailRequest request, HttpServletResponse httpResponse, HttpServletRequest httpRequest) {
+        RegisterEmailResponse response = authService.registerEmail(request);
+
+        String ip = (String) httpRequest.getAttribute("clientIp");
+        String ua = (String) httpRequest.getAttribute("userAgent");
+
+        log.info("Ip user yang melakukan registrasi email : " + ip);
+        log.info("User Agent yang melakukan registrasi email : " + ua);
+
+        ResponseCookie cookie = ResponseCookie.from("OTP_TOKEN", response.getOtpToken())
+            .httpOnly(true)
+            .secure(false)
+            .path("/")
+            .maxAge(Duration.ofMinutes(5))
+            .sameSite("Strict")
+        .build();
+
+        // settingan cookie di server
+        // ResponseCookie cookie = ResponseCookie.from("OTP_TOKEN", otpToken)
+        // .httpOnly(true)
+        // .secure(true)
+        // .path("/")
+        // .sameSite("None")
+        // .build();
+
+    httpResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
         ApiResponse<RegisterEmailResponse> apiResponse = ApiResponse.<RegisterEmailResponse>builder()
             .statusCode(200)
@@ -51,8 +79,14 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request, @CookieValue("OTP_TOKEN") String otpToken) {
+    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request, @CookieValue("OTP_TOKEN") String otpToken, HttpServletRequest httpServletRequest) {
         AuthResponse response = authService.register(request, otpToken);
+
+        String ip = (String) httpServletRequest.getAttribute("clientIp");
+        String ua = (String) httpServletRequest.getAttribute("userAgent");
+
+        log.info("Ip user yang melakukan registrasi : " + ip);
+        log.info("User Agent yang melakukan registrasi : " + ua);
 
         ApiResponse<AuthResponse> apiResponse = ApiResponse.<AuthResponse>builder()
             .statusCode(200)
@@ -64,8 +98,14 @@ public class AuthController {
     }
 
     @PostMapping("/verify-otp")
-    public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@RequestBody VerifyOtpRequest request, @CookieValue("OTP_TOKEN") String otpToken) {
+    public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(@RequestBody VerifyOtpRequest request, @CookieValue("OTP_TOKEN") String otpToken, HttpServletRequest httpServletRequest) {
         AuthResponse response = authService.verifyOtp(request, otpToken);
+
+        String ip = (String) httpServletRequest.getAttribute("clientIp");
+        String ua = (String) httpServletRequest.getAttribute("userAgent");
+
+        log.info("Ip user yang menerima otp : " + ip);
+        log.info("User Agent yang menerima otp : " + ua);
 
         return ResponseEntity.ok(
             ApiResponse.<AuthResponse>builder()
@@ -78,9 +118,15 @@ public class AuthController {
 
 
     @PostMapping("/resend-otp")
-    public ResponseEntity<ApiResponse<ResendOtpResponse>> resendOtp(@RequestBody @Valid ResendOtpRequest request) {
+    public ResponseEntity<ApiResponse<ResendOtpResponse>> resendOtp(@RequestBody @Valid ResendOtpRequest request, HttpServletRequest httpServletRequest) {
 
         ResendOtpResponse response = authService.resendOtp(request.getEmail());
+
+        String ip = (String) httpServletRequest.getAttribute("clientIp");
+        String ua = (String) httpServletRequest.getAttribute("userAgent");
+
+        log.info("Ip user yang melakukan request otp : " + ip);
+        log.info("User Agent yang melakukan request otp  : " + ua);
 
         ApiResponse<ResendOtpResponse> apiResponse = ApiResponse.<ResendOtpResponse>builder()
             .statusCode(200)
@@ -92,9 +138,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(
-            @RequestBody LoginRequest request,
-            HttpServletRequest servletRequest) {
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request, HttpServletRequest servletRequest) {
 
         String ip = clientIpService.getClientIp(servletRequest);
         String userAgent = servletRequest.getHeader("User-Agent");
